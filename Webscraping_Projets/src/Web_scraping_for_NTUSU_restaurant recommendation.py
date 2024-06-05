@@ -1,16 +1,25 @@
 import requests
 import openpyxl 
+from openpyxl.drawing.image import Image as openpyxl_Image
 from bs4 import BeautifulSoup as bs 
 import re 
 
+#for the image module, need requests also 
+from PIL import Image
+from io import BytesIO
+
+def create_img_object_from_link(*, url_link_args):
+    response = requests.get(url_link_args)
+    img = Image.open(BytesIO(response.content))
+    img_1 = openpyxl_Image(img)
+    return img_1
+    
 ##
 #   @mainpage Doxygen Documentation for NTUSU food recommendation 
 #   @section main_description Description
 #   This projects aims to scrap restaurant data from website and put it into a ExcelSheet 
 #   @section main_note Notes 
-#   sN/A 
-
-
+#   N/A 
 
 ##
 #   @brief Defines the code for web scrapping 
@@ -28,6 +37,10 @@ excel_path  = r"C:\Users\Ng Hong Xi\Desktop\Food_recommendation_for_NTUSU.xlsx"
 
 website_html_img_tag_array = []   
 excel_row_index = 2 
+
+#image array for storing new image object 
+image_link_array = [] 
+image_object_array = []
 
 def main():
     """!This is the entry point     
@@ -48,14 +61,27 @@ def main():
     #this is to fill in the first row inside excel   
     fill_excel_row_title(worksheet_args = ws)
     #end
-
+    
+    #ws.add_image(image_object_2, "C2")
+     
     for i in range (len(website_html_img_tag_array)):
-        text_file.write(f"{find_ideal_image_size_http_title(img_tag_args = website_html_img_tag_array[i])}\n") 
-        ws[f"A{excel_row_index}"] = f"{find_ideal_image_size_http_title(img_tag_args = website_html_img_tag_array[i])}"
-        text_file.write(f"{find_ideal_image_size_http_link(srcset_tag_args = srcset_tag_get(website_html_image_tag_args = website_html_img_tag_array[i]))}\n") 
-        ws[f"B{excel_row_index}"] = f"{find_ideal_image_size_http_link(srcset_tag_args = srcset_tag_get(website_html_image_tag_args = website_html_img_tag_array[i]))}"
+
+        image_title = f"{find_ideal_image_size_http_title(img_tag_args = website_html_img_tag_array[i])}"
+        ws[f"A{excel_row_index}"] = image_title
+
+        image_http_link = f"{find_ideal_image_size_http_link(srcset_tag_args = srcset_tag_get(website_html_image_tag_args = website_html_img_tag_array[i]))}"
+        ws[f"B{excel_row_index}"] = image_http_link
+
+        #store the image link inside image_link_array
+        image_link_array.append(image_http_link) 
+
+        #shutdown
+        image_object_array.append(create_img_object_from_link(url_link_args = image_link_array[i]))
+        ws.add_image(image_object_array[i], f"C{excel_row_index}")
+        
         excel_row_index += 1
         text_file.write("\n")
+    
     wb.save(excel_path)
 
 #working correctly 
@@ -69,7 +95,7 @@ def srcset_tag_get(*, website_html_image_tag_args = "None"):
     return website_image_tag_srcset_attrs
 
 #sets 380 as default 
-def find_ideal_image_size_http_link(*, required_size = "380", srcset_tag_args = "None"):
+def find_ideal_image_size_http_link(*, required_width = "380", srcset_tag_args = "None"):
     '''!This gets the exact image http link
 
     @param required_size This is the width of the image
@@ -77,11 +103,20 @@ def find_ideal_image_size_http_link(*, required_size = "380", srcset_tag_args = 
     @return String - The http link of the image 
     '''
     srcset_string = str(srcset_tag_args)
+    #print(srcset_string)    
+    pattern = r"(https://[^\s]*" + required_width + "[^\s]*)"
+
     #returns the Match object of this re
-    search_status = re.search(required_size, srcset_string)
+    search_status = re.search(pattern, srcset_string)
     if search_status is not None:
-    #this obtains the first image of 380w
-        return (search_status.string.split(" ")[0])
+        #this obtains the first image of 380w
+        #print(search_status.group(0))
+        return (search_status.group(0))
+    
+ 
+
+    
+        
 
 def find_ideal_image_size_http_title(*, img_tag_args = "None"):
     '''!This gets the name of the image through the title attribute for the <img> tag 
@@ -92,15 +127,19 @@ def find_ideal_image_size_http_title(*, img_tag_args = "None"):
     
     
 def fill_excel_row_title(*, worksheet_args = "None"):
-    tltle = [["restaurant name", "image link"]] 
-    for row in tltle: 
-        worksheet_args.append(row)
-    
+    '''!This fills up the first row of the excel sheet 
+    @param worksheet_args This is the worksheet object 
+    '''
+    title = ["restaurant name", "image link"] 
+    for rows in range(len(title)): 
+        worksheet_args.cell(row = 1, column = rows + 1, value = title[rows])
 
-    
-        
 
 
+# image_link = "https://media.timeout.com/images/106080273/380/285/image.jpg"
+# image_link_2 = "https://media.timeout.com/images/105913471/380/285/image.jpg"
+# image_object = create_img_object_from_link(url_link_args = image_link)
+# image_object_2 = create_img_object_from_link(url_link_args = image_link_2)
 main()
 
 
